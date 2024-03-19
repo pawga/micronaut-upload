@@ -37,6 +37,7 @@ dependencies {
     runtimeOnly("org.yaml:snakeyaml")
     testImplementation("io.micronaut:micronaut-http-client")
     testImplementation("org.mockito:mockito-core")
+    testImplementation("org.assertj:assertj-core:3.25.3")
 }
 
 
