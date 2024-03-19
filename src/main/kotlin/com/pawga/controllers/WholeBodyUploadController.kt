@@ -25,8 +25,8 @@ class WholeBodyUploadController {
                 private var s: Subscription? = null
 
                 override fun onSubscribe(s: Subscription) {
-//                    this.s = s
-//                    s.request(1)
+                    this.s = s
+                    s.request(2)
                 }
 
                 override fun onNext(completedPart: CompletedPart) {
