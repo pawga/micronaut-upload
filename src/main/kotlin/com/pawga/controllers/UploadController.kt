@@ -373,16 +373,19 @@ class UploadController {
     @Post(
         value = "/receive-multiple-streaming",
         consumes = [MediaType.MULTIPART_FORM_DATA],
-//        produces = [MediaType.TEXT_PLAIN]
+        produces = [MediaType.TEXT_PLAIN]
     )
     @SingleResult
     fun receiveMultipleStreaming(
         data: Publisher<StreamingFileUpload>
     ): Publisher<HttpResponse<*>> {
-        return Flux.from<StreamingFileUpload>(data).subscribeOn(Schedulers.boundedElastic())
+        return Flux.from<StreamingFileUpload>(data)
+            .subscribeOn(Schedulers.boundedElastic())
             .flatMap<ByteArray> { upload ->
                 Flux.from<PartData>(upload)
+                    .publishOn(Schedulers.boundedElastic())
                     .map<ByteArray> { pd: PartData ->
+                        val tempFile = File.createTempFile("micronaut-", ".upload")
                         try {
                             return@map pd.bytes
                         } catch (e: IOException) {
