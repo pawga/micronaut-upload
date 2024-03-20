@@ -370,6 +370,18 @@ class UploadController {
         return subject.asFlux()
     }
 
+//    @Post(
+//        value = "/receive-multiple-streaming-isn",
+//        consumes = [MediaType.MULTIPART_FORM_DATA],
+//        produces = [MediaType.TEXT_PLAIN]
+//    )
+//    @SingleResult
+//    fun receiveMultipleStreamingIsn(
+//        data: Publisher<CompletedFileUpload>
+//    ): Publisher<HttpResponse<*>> {
+//
+//    }
+
     @Post(
         value = "/receive-multiple-streaming",
         consumes = [MediaType.MULTIPART_FORM_DATA],
