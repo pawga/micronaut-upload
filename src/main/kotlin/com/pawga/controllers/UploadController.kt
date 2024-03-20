@@ -373,14 +373,14 @@ class UploadController {
     @Post(
         value = "/receive-multiple-streaming",
         consumes = [MediaType.MULTIPART_FORM_DATA],
-        produces = [MediaType.TEXT_PLAIN]
+//        produces = [MediaType.TEXT_PLAIN]
     )
     @SingleResult
     fun receiveMultipleStreaming(
-        data: Publisher<StreamingFileUpload>?
+        data: Publisher<StreamingFileUpload>
     ): Publisher<HttpResponse<*>> {
         return Flux.from<StreamingFileUpload>(data).subscribeOn(Schedulers.boundedElastic())
-            .flatMap<ByteArray> { upload: StreamingFileUpload? ->
+            .flatMap<ByteArray> { upload ->
                 Flux.from<PartData>(upload)
                     .map<ByteArray> { pd: PartData ->
                         try {
@@ -391,8 +391,8 @@ class UploadController {
                     }
             }
             .collect<LongAdder>(
-                Supplier<LongAdder> { LongAdder() },
-                BiConsumer<LongAdder, ByteArray> { adder: LongAdder, bytes: ByteArray -> adder.add(bytes.size.toLong()) })
+                { LongAdder() },
+                { adder: LongAdder, bytes: ByteArray -> adder.add(bytes.size.toLong()) })
             .map<HttpResponse<*>> { adder: LongAdder -> HttpResponse.ok<Long>(adder.toLong()) }
     }
 
