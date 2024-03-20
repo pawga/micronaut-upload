@@ -23,6 +23,8 @@ dependencies {
     ksp("io.micronaut.validation:micronaut-validation-processor")
     implementation("io.micrometer:context-propagation")
     implementation("io.micronaut.kotlin:micronaut-kotlin-runtime")
+    implementation("io.micronaut.rxjava2:micronaut-rxjava2")
+    implementation("io.micronaut.rxjava2:micronaut-rxjava2-http-client")
     implementation("io.micronaut.reactor:micronaut-reactor")
     implementation("io.micronaut.reactor:micronaut-reactor-http-client")
     implementation("io.micronaut.serde:micronaut-serde-jackson")
@@ -38,6 +40,7 @@ dependencies {
     testImplementation("io.micronaut:micronaut-http-client")
     testImplementation("org.mockito:mockito-core")
     testImplementation("org.assertj:assertj-core:3.25.3")
+    testImplementation("junit:junit:4.12")
 }
 
 
