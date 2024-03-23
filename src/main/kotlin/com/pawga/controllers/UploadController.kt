@@ -331,6 +331,45 @@ class UploadController {
 
     @Post(value = "/receive-multiple-completed", consumes = [MediaType.MULTIPART_FORM_DATA])
     fun receiveMultipleCompleted(
+        data: Publisher<CompletedFileUpload>?,
+        title: String
+    ): Publisher<HttpResponse<*>> {
+        val results: MutableList<Map<*, *>> = ArrayList()
+
+        val subject = ReplayProcessor.create<HttpResponse<*>>()
+        Flux.from<CompletedFileUpload>(data).subscribeOn(Schedulers.boundedElastic())
+            .subscribe(object : Subscriber<CompletedFileUpload> {
+                var subscription: Subscription? = null
+                override fun onSubscribe(s: Subscription) {
+                    s.request(1)
+                    this.subscription = s
+                }
+
+                override fun onNext(upload: CompletedFileUpload) {
+                    val result: MutableMap<String, Any> = LinkedHashMap()
+                    result["name"] = upload.filename
+                    result["size"] = upload.size
+                    results.add(result)
+                    subscription!!.request(1)
+                }
+
+                override fun onError(t: Throwable) {
+                    subject.onError(t)
+                }
+
+                override fun onComplete() {
+                    val body: MutableMap<String, Any> = LinkedHashMap()
+                    body["files"] = results
+                    body["title"] = title
+                    subject.onNext(HttpResponse.ok<Map<String, Any>>(body))
+                    subject.onComplete()
+                }
+            })
+        return subject.asFlux()
+    }
+
+    @Post(value = "/receive-multiple-streaming-isn", consumes = [MediaType.MULTIPART_FORM_DATA])
+    fun receiveIsnMultipleCompleted(
         data: Publisher<CompletedFileUpload>
     ): Publisher<HttpResponse<*>> {
         val results: MutableList<Map<*, *>> = ArrayList()
@@ -364,28 +403,6 @@ class UploadController {
             })
         return sink.asFlux()
     }
-
-//    @Post(
-//        value = "/receive-multiple-streaming-isn",
-//        consumes = [MediaType.MULTIPART_FORM_DATA],
-//        produces = [MediaType.TEXT_PLAIN]
-//    )
-//    @SingleResult
-//    fun receiveMultipleStreamingIsn(
-//        data: Publisher<CompletedFileUpload>
-//    ): Publisher<HttpResponse<*>> {
-//        return Flux.from<CompletedFileUpload>(data)
-//            .subscribeOn(Schedulers.boundedElastic())
-//            .log()
-//            .doOnComplete {
-//                log.debug("doOnComplete")
-//            }
-//            .subscribe { fileUpload ->
-//                val tempFile = File.createTempFile(fileUpload.name, "temp")
-//                val path = Paths.get(tempFile.absolutePath)
-//                Files.write(path, fileUpload.bytes)
-//            }.
-//    }
 
     @Post(
         value = "/receive-multiple-streaming",
