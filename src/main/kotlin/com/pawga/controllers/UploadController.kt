@@ -368,7 +368,7 @@ class UploadController {
         return subject.asFlux()
     }
 
-    @Post(value = "/receive-multiple-streaming-isn", consumes = [MediaType.MULTIPART_FORM_DATA])
+    @Post(value = "/receive-multiple-completed-isn", consumes = [MediaType.MULTIPART_FORM_DATA])
     fun receiveIsnMultipleCompleted(
         data: Publisher<CompletedFileUpload>
     ): Publisher<HttpResponse<*>> {
@@ -387,7 +387,7 @@ class UploadController {
                     result["name"] = upload.filename
                     result["size"] = upload.size
                     results.add(result)
-                    subscription!!.request(1)
+                    subscription?.request(1)
                 }
 
                 override fun onError(throwable: Throwable) {
@@ -414,6 +414,35 @@ class UploadController {
         data: Publisher<StreamingFileUpload>
     ): Publisher<HttpResponse<*>> {
         return Flux.from<StreamingFileUpload>(data)
+            .subscribeOn(Schedulers.boundedElastic())
+            .flatMap<ByteArray> { upload ->
+                Flux.from<PartData>(upload)
+                    .publishOn(Schedulers.boundedElastic())
+                    .map<ByteArray> { pd: PartData ->
+                        val tempFile = File.createTempFile("micronaut-", ".upload")
+                        try {
+                            return@map pd.bytes
+                        } catch (e: IOException) {
+                            throw Exceptions.propagate(e)
+                        }
+                    }
+            }
+            .collect<LongAdder>(
+                { LongAdder() },
+                { adder: LongAdder, bytes: ByteArray -> adder.add(bytes.size.toLong()) })
+            .map<HttpResponse<*>> { adder: LongAdder -> HttpResponse.ok<Long>(adder.toLong()) }
+    }
+
+    @Post(
+        value = "/receive-multiple-streaming-isn",
+        consumes = [MediaType.MULTIPART_FORM_DATA],
+        produces = [MediaType.TEXT_PLAIN]
+    )
+    @SingleResult
+    fun receiveIsnMultipleStreaming(
+        data: Publisher<StreamingFileUpload>
+    ): Publisher<HttpResponse<*>> {
+        return Flux.from(data)
             .subscribeOn(Schedulers.boundedElastic())
             .flatMap<ByteArray> { upload ->
                 Flux.from<PartData>(upload)
