@@ -24,10 +24,7 @@ import org.reactivestreams.Subscription
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import reactor.core.Exceptions
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
-import reactor.core.publisher.MonoSink
-import reactor.core.publisher.ReplayProcessor
+import reactor.core.publisher.*
 import reactor.core.scheduler.Schedulers
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -40,6 +37,7 @@ import java.util.concurrent.atomic.LongAdder
 import java.util.function.BiConsumer
 import java.util.function.Function
 import java.util.function.Supplier
+
 
 @Controller("/upload")
 class UploadController {
@@ -333,18 +331,16 @@ class UploadController {
 
     @Post(value = "/receive-multiple-completed", consumes = [MediaType.MULTIPART_FORM_DATA])
     fun receiveMultipleCompleted(
-        data: Publisher<CompletedFileUpload>?,
-        title: String
+        data: Publisher<CompletedFileUpload>
     ): Publisher<HttpResponse<*>> {
         val results: MutableList<Map<*, *>> = ArrayList()
-
-        val subject = ReplayProcessor.create<HttpResponse<*>>()
-        Flux.from<CompletedFileUpload>(data).subscribeOn(Schedulers.boundedElastic())
+        val sink = Sinks.many().replay().all<HttpResponse<*>>()
+        Flux.from(data).subscribeOn(Schedulers.boundedElastic())
             .subscribe(object : Subscriber<CompletedFileUpload> {
                 var subscription: Subscription? = null
-                override fun onSubscribe(s: Subscription) {
-                    s.request(1)
-                    this.subscription = s
+                override fun onSubscribe(subscription: Subscription) {
+                    subscription.request(1)
+                    this.subscription = subscription
                 }
 
                 override fun onNext(upload: CompletedFileUpload) {
@@ -355,19 +351,18 @@ class UploadController {
                     subscription!!.request(1)
                 }
 
-                override fun onError(t: Throwable) {
-                    subject.onError(t)
+                override fun onError(throwable: Throwable) {
+                    sink.tryEmitError(throwable)
                 }
 
                 override fun onComplete() {
                     val body: MutableMap<String, Any> = LinkedHashMap()
                     body["files"] = results
-                    body["title"] = title
-                    subject.onNext(HttpResponse.ok<Map<String, Any>>(body))
-                    subject.onComplete()
+                    sink.tryEmitNext(HttpResponse.ok<Map<String, Any>>(body))
+                    sink.tryEmitComplete()
                 }
             })
-        return subject.asFlux()
+        return sink.asFlux()
     }
 
 //    @Post(
@@ -379,7 +374,17 @@ class UploadController {
 //    fun receiveMultipleStreamingIsn(
 //        data: Publisher<CompletedFileUpload>
 //    ): Publisher<HttpResponse<*>> {
-//
+//        return Flux.from<CompletedFileUpload>(data)
+//            .subscribeOn(Schedulers.boundedElastic())
+//            .log()
+//            .doOnComplete {
+//                log.debug("doOnComplete")
+//            }
+//            .subscribe { fileUpload ->
+//                val tempFile = File.createTempFile(fileUpload.name, "temp")
+//                val path = Paths.get(tempFile.absolutePath)
+//                Files.write(path, fileUpload.bytes)
+//            }.
 //    }
 
     @Post(
