@@ -80,11 +80,11 @@ class UploadController {
     fun uploadBytes(@Body body: MultipartBody): Mono<String> { // (2)
         return Mono.create { emitter ->
             body.subscribe(object : Subscriber<CompletedPart> {
-                private var s: Subscription? = null
+                private var subscription: Subscription? = null
 
                 override fun onSubscribe(s: Subscription) {
-                    this.s = s
-                    s.request(20)
+                    this.subscription = s
+                    s.request(1)
                 }
 
                 override fun onNext(completedPart: CompletedPart) {
@@ -92,6 +92,7 @@ class UploadController {
                     if (completedPart is CompletedFileUpload) {
                         val originalFileName = completedPart.filename
                     }
+                    subscription?.request(1)
                 }
 
                 override fun onError(t: Throwable) {
@@ -369,7 +370,7 @@ class UploadController {
     }
 
     @Post(value = "/receive-multiple-completed-isn", consumes = [MediaType.MULTIPART_FORM_DATA])
-    fun receiveIsnMultipleCompleted(
+    fun receiveMultipleCompletedIsn(
         data: Publisher<CompletedFileUpload>
     ): Publisher<HttpResponse<*>> {
         val results: MutableList<Map<*, *>> = ArrayList()
@@ -414,35 +415,6 @@ class UploadController {
         data: Publisher<StreamingFileUpload>
     ): Publisher<HttpResponse<*>> {
         return Flux.from<StreamingFileUpload>(data)
-            .subscribeOn(Schedulers.boundedElastic())
-            .flatMap<ByteArray> { upload ->
-                Flux.from<PartData>(upload)
-                    .publishOn(Schedulers.boundedElastic())
-                    .map<ByteArray> { pd: PartData ->
-                        val tempFile = File.createTempFile("micronaut-", ".upload")
-                        try {
-                            return@map pd.bytes
-                        } catch (e: IOException) {
-                            throw Exceptions.propagate(e)
-                        }
-                    }
-            }
-            .collect<LongAdder>(
-                { LongAdder() },
-                { adder: LongAdder, bytes: ByteArray -> adder.add(bytes.size.toLong()) })
-            .map<HttpResponse<*>> { adder: LongAdder -> HttpResponse.ok<Long>(adder.toLong()) }
-    }
-
-    @Post(
-        value = "/receive-multiple-streaming-isn",
-        consumes = [MediaType.MULTIPART_FORM_DATA],
-        produces = [MediaType.TEXT_PLAIN]
-    )
-    @SingleResult
-    fun receiveIsnMultipleStreaming(
-        data: Publisher<StreamingFileUpload>
-    ): Publisher<HttpResponse<*>> {
-        return Flux.from(data)
             .subscribeOn(Schedulers.boundedElastic())
             .flatMap<ByteArray> { upload ->
                 Flux.from<PartData>(upload)
